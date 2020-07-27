@@ -115,100 +115,10 @@ class _MyHomePageState extends State<MyHomePage> {
       BluetoothCharacteristic characteristic) {
     List<ButtonTheme> buttons = new List<ButtonTheme>();
 
-    if (characteristic.properties.read) {
-      buttons.add(
-        ButtonTheme(
-          minWidth: 10,
-          height: 20,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: RaisedButton(
-              color: Colors.blue,
-              child: Text('READ', style: TextStyle(color: Colors.white)),
-              onPressed: () async {
-                var sub = characteristic.value.listen((value) {
-                  setState(() {
-                    widget.readValues[characteristic.uuid] = value;
-                  });
-                });
-                await characteristic.read();
-                sub.cancel();
-              },
-            ),
-          ),
-        ),
-      );
-    }
-    if (characteristic.properties.write) {
-      buttons.add(
-        ButtonTheme(
-          minWidth: 10,
-          height: 20,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: RaisedButton(
-              child: Text('WRITE', style: TextStyle(color: Colors.white)),
-              onPressed: () async {
-                await showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: Text("Write"),
-                        content: Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: TextField(
-                                controller: _writeController,
-                              ),
-                            ),
-                          ],
-                        ),
-                        actions: <Widget>[
-                          FlatButton(
-                            child: Text("Send"),
-                            onPressed: () {
-                              characteristic.write(
-                                  utf8.encode(_writeController.value.text));
-                              Navigator.pop(context);
-                            },
-                          ),
-                          FlatButton(
-                            child: Text("Cancel"),
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ],
-                      );
-                    });
-              },
-            ),
-          ),
-        ),
-      );
-    }
     if (characteristic.properties.notify) {
-      buttons.add(
-        ButtonTheme(
-          minWidth: 10,
-          height: 20,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: RaisedButton(
-              child: Text('NOTIFY', style: TextStyle(color: Colors.white)),
-              onPressed: () async {
-                characteristic.value.listen((value) {
-                  widget.readValues[characteristic.uuid] = value;
-                });
-                await characteristic.setNotifyValue(true);
-                setState(() {
+      characteristic.setNotifyValue(true);
+      print("notification listening");
 
-                });
-              },
-            ),
-          ),
-        ),
-      );
     }
 
     return buttons;
@@ -217,45 +127,67 @@ class _MyHomePageState extends State<MyHomePage> {
   ListView _buildConnectDeviceView() {
     List<Container> containers = new List<Container>();
 
+
+
     for (BluetoothService service in _services) {
       List<Widget> characteristicsWidget = new List<Widget>();
 
       for (BluetoothCharacteristic characteristic in service.characteristics) {
-        characteristicsWidget.add(
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Column(
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Text(characteristic.uuid.toString(),
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                Row(
-                  children: <Widget>[
-                    ..._buildReadWriteNotifyButton(characteristic),
-                  ],
-                ),
-                Row(
-                  children: <Widget>[
-                    Text('Value: ' +
-                        widget.readValues[characteristic.uuid].toString()),
-                    //Il manque un petit SetState pour actualiser l'affichage mais sinon nickel
-                  ],
-                ),
-                Divider(),
-              ],
+        if(characteristic.properties.notify){
+          characteristicsWidget.add(
+
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                children: <Widget>[
+                  StreamBuilder<List<int>>(
+                    stream: characteristic.value,
+                    initialData: characteristic.lastValue,
+                    builder: (c, snapshot){
+                      final value = snapshot.data;
+                      return Text(((){
+
+                        String _val = value.toString();
+                        String _newcode = "";
+                        int _code = 0;
+                        print("Val de la longueur de val: ${_val.length}");
+                        if (_val.length > 2) {
+                          for (int i = 0; i < _val.length / 4; i++) {
+                            //print("Val $i : ${value[i]}");
+                            _code = value[i] - 48;
+
+                            _newcode = _newcode + _code.toString();
+                          }
+                          print("Equivalent ds code : $_newcode");
+                        }
+                        return _newcode;
+                      })());
+
+
+                    },
+                  ),
+
+                  Row(
+                    children: <Widget>[
+                      ..._buildReadWriteNotifyButton(characteristic),
+
+                    ],
+                  ),
+
+                  Divider(),
+                ],
+              ),
             ),
-          ),
-        );
+          );
+        }
+
       }
       containers.add(
         Container(
-          child: ExpansionTile(
-              title: Text(service.uuid.toString()),
-              children: characteristicsWidget),
-        ),
+          child: Column(
+            children: characteristicsWidget,
+          ) ),
+
       );
     }
 
